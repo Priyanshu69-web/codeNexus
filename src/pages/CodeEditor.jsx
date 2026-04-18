@@ -1,194 +1,379 @@
 import { useEffect, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, X } from "lucide-react";
+import { MessageSquare, X, PanelRightClose, PanelRightOpen } from "lucide-react";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import { alpha } from "@mui/material/styles";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../hooks/useSocket";
 import Navbar from "../components/Navbar";
 import ChatPanel from "../components/ChatPanel";
+import { COLORS } from "../theme/theme";
+
+const MotionBox = motion(Box);
 
 const CodeEditor = ({ roomId }) => {
-    const { user } = useAuth();
-    const socket = useSocket(roomId);
-    
-    const [code, setCode] = useState("");
-    const [language, setLanguage] = useState("javascript");
-    const [activeUsers, setActiveUsers] = useState([]);
-    const [isEditorLoaded, setIsEditorLoaded] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
+  const { user } = useAuth();
+  const socket = useSocket(roomId);
 
-    useEffect(() => {
-        if (!socket) return;
+  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState("javascript");
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [isEditorLoaded, setIsEditorLoaded] = useState(false);
 
-        socket.on("room-state", ({ code, language, activeUsers }) => {
-            setCode(code);
-            setLanguage(language);
-            setActiveUsers(activeUsers);
-        });
+  // ─── Chat panel: collapsed by default ────────────────────────────────────────
+  const [chatOpen, setChatOpen] = useState(false);
+  // Mobile bottom sheet
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
-        socket.on("code-change", (newCode) => {
-            setCode(newCode);
-        });
+  useEffect(() => {
+    if (!socket) return;
 
-        socket.on("language-change", (newLang) => {
-            setLanguage(newLang);
-        });
+    socket.on("room-state", ({ code, language, activeUsers }) => {
+      setCode(code);
+      setLanguage(language);
+      setActiveUsers(activeUsers);
+    });
+    socket.on("code-change",     (newCode) => setCode(newCode));
+    socket.on("language-change", (newLang) => setLanguage(newLang));
+    socket.on("user-joined",     ({ activeUsers }) => setActiveUsers(activeUsers));
+    socket.on("user-left",       ({ activeUsers }) => setActiveUsers(activeUsers));
 
-        socket.on("user-joined", ({ activeUsers }) => {
-            setActiveUsers(activeUsers);
-        });
-
-        socket.on("user-left", ({ activeUsers }) => {
-            setActiveUsers(activeUsers);
-        });
-
-        return () => {
-            socket.off("room-state");
-            socket.off("code-change");
-            socket.off("language-change");
-            socket.off("user-joined");
-            socket.off("user-left");
-        };
-    }, [socket]);
-
-    const handleCodeChange = (newValue) => {
-        setCode(newValue);
-        socket.emit("code-change", { roomId, code: newValue });
+    return () => {
+      socket.off("room-state");
+      socket.off("code-change");
+      socket.off("language-change");
+      socket.off("user-joined");
+      socket.off("user-left");
     };
+  }, [socket]);
 
-    const handleLanguageChange = (newLanguage) => {
-        setLanguage(newLanguage);
-        socket.emit("language-change", { roomId, language: newLanguage });
+  const handleCodeChange = (newValue) => {
+    setCode(newValue);
+    socket?.emit("code-change", { roomId, code: newValue });
+  };
+
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
+    socket?.emit("language-change", { roomId, language: newLang });
+  };
+
+  const handleDownload = () => {
+    const ext = {
+      javascript: "js", typescript: "ts", python: "py",
+      cpp: "cpp", java: "java", html: "html", css: "css",
+      go: "go", rust: "rs", ruby: "rb", php: "php", csharp: "cs",
     };
+    const blob = new Blob([code], { type: "text/plain" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = `code_${roomId}.${ext[language] || "txt"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
-    const handleDownloadCode = () => {
-        const extensions = {
-            javascript: "js", typescript: "ts", python: "py", cpp: "cpp", java: "java", html: "html", css: "css"
-        };
-        const extension = extensions[language] || "txt";
-        const element = document.createElement("a");
-        const file = new Blob([code], { type: "text/plain" });
-        element.href = URL.createObjectURL(file);
-        element.download = `code_${roomId}.${extension}`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-    };
+  return (
+    <MotionBox
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      sx={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: COLORS.bg.primary,
+        overflow: "hidden",
+      }}
+    >
+      {/* ── Top Navbar ── */}
+      <Navbar
+        roomId={roomId}
+        language={language}
+        onLanguageChange={handleLanguageChange}
+        onDownload={handleDownload}
+        activeUsers={activeUsers}
+      />
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }}
-            className="h-screen flex flex-col bg-[#0d1117] overflow-hidden selection:bg-pink-500/30"
+      {/* ── Main content row ── */}
+      <Box sx={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
+
+        {/* ── Code Editor ── */}
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            position: "relative",
+            bgcolor: COLORS.bg.primary,
+            transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
         >
-            <Navbar 
-                roomId={roomId}
-                language={language}
-                onLanguageChange={handleLanguageChange}
-                onDownload={handleDownloadCode}
-                activeUsers={activeUsers}
-            />
-
-            <main className="flex-1 flex min-h-0 relative">
-                {/* Editor Container */}
-                <section className="flex-1 min-w-0 relative bg-[#0d1117] border-r border-[#30363d]">
-                    <AnimatePresence>
-                        {!isEditorLoaded && (
-                            <motion.div 
-                                exit={{ opacity: 0 }}
-                                className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0d1117] gap-5"
-                            >
-                                <div className="relative">
-                                    <div className="w-12 h-12 border-2 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
-                                    </div>
-                                </div>
-                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] ml-[0.3em]">
-                                    Establishing Sync
-                                </span>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                    
-                    <div className="h-full w-full">
-                        <Editor
-                            height="100%"
-                            theme="vs-dark"
-                            language={language}
-                            value={code}
-                            onChange={handleCodeChange}
-                            onMount={() => setIsEditorLoaded(true)}
-                            options={{
-                                minimap: { enabled: false },
-                                fontSize: 13,
-                                fontFamily: "'JetBrains Mono', monospace",
-                                cursorSmoothCaretAnimation: "on",
-                                smoothScrolling: true,
-                                padding: { top: 20, bottom: 20 },
-                                wordWrap: "on",
-                                tabSize: 4,
-                                scrollBeyondLastLine: false,
-                                lineNumbersMinChars: 4,
-                                lineDecorationsWidth: 10,
-                                backgroundColor: "#0d1117",
-                                renderLineHighlight: "all",
-                                scrollbar: {
-                                    vertical: 'visible',
-                                    horizontal: 'visible',
-                                    useShadows: false,
-                                    verticalWidth: 10,
-                                    horizontalHeight: 10
-                                }
-                            }}
-                        />
-                    </div>
-                </section>
-
-                {/* Sidebar (Desktop Chat) */}
-                <aside className="hidden xl:block w-[400px] bg-[#0d1117] flex-shrink-0 animate-fadeIn">
-                    <ChatPanel socket={socket} roomId={roomId} user={user} />
-                </aside>
-
-                {/* Floating Chat Trigger (Mobile & Tablet) */}
-                <button 
-                    onClick={() => setIsChatOpen(true)}
-                    className="xl:hidden fixed bottom-8 right-8 w-14 h-14 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl shadow-[0_8px_32px_rgba(236,72,153,0.4)] flex items-center justify-center z-40 active:scale-90 transition-all group"
+          {/* Loading overlay */}
+          <AnimatePresence>
+            {!isEditorLoaded && (
+              <MotionBox
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: COLORS.bg.primary,
+                  gap: 2.5,
+                }}
+              >
+                <Box sx={{ position: "relative" }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      border: `2px solid ${alpha(COLORS.accent.pink, 0.12)}`,
+                      borderTopColor: COLORS.accent.pink,
+                      animation: "spin 0.8s linear infinite",
+                      "@keyframes spin": { to: { transform: "rotate(360deg)" } },
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, #EC4899, #8B5CF6)",
+                        animation: "pulse-dot 1.5s ease infinite",
+                      }}
+                    />
+                  </Box>
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                    color: COLORS.text.muted,
+                    letterSpacing: "0.25em",
+                    textTransform: "uppercase",
+                  }}
                 >
-                    <MessageSquare size={24} className="group-hover:scale-110 transition-transform" />
-                </button>
+                  Establishing Sync
+                </Box>
+              </MotionBox>
+            )}
+          </AnimatePresence>
 
-                {/* Mobile Bottom Sheet */}
-                <AnimatePresence>
-                    {isChatOpen && (
-                        <>
-                            <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setIsChatOpen(false)}
-                                className="fixed inset-0 bg-[#0d1117]/80 backdrop-blur-md z-[60] xl:hidden"
-                            />
-                            <motion.div 
-                                initial={{ y: "100%" }}
-                                animate={{ y: 0 }}
-                                exit={{ y: "100%" }}
-                                transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                                className="fixed bottom-0 inset-x-0 h-[85vh] bg-[#0d1117] border-t border-[#30363d] rounded-t-[40px] z-[70] xl:hidden flex flex-col shadow-[0_-20px_40px_rgba(0,0,0,0.4)]"
-                            >
-                                <div className="w-full flex flex-col items-center py-4 cursor-pointer" onClick={() => setIsChatOpen(false)}>
-                                    <div className="w-16 h-1 bg-[#30363d] rounded-full mb-1 group-hover:bg-gray-600 transition-colors" />
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <ChatPanel socket={socket} roomId={roomId} user={user} />
-                                </div>
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
-            </main>
-        </motion.div>
-    );
+          <Editor
+            height="100%"
+            theme="vs-dark"
+            language={language}
+            value={code}
+            onChange={handleCodeChange}
+            onMount={() => setIsEditorLoaded(true)}
+            options={{
+              minimap:                    { enabled: false },
+              fontSize:                   14,
+              fontFamily:                 "'JetBrains Mono', 'Fira Code', monospace",
+              fontLigatures:              true,
+              cursorSmoothCaretAnimation: "on",
+              smoothScrolling:            true,
+              padding:                    { top: 20, bottom: 20 },
+              wordWrap:                   "on",
+              tabSize:                    2,
+              scrollBeyondLastLine:       false,
+              lineNumbersMinChars:        4,
+              lineDecorationsWidth:       10,
+              renderLineHighlight:        "all",
+              bracketPairColorization:    { enabled: true },
+              guides:                     { bracketPairs: true },
+              scrollbar: {
+                vertical:        "visible",
+                horizontal:      "visible",
+                useShadows:      false,
+                verticalWidth:   6,
+                horizontalHeight:6,
+              },
+            }}
+          />
+
+          {/* ── Chat Toggle Button (Desktop) ── */}
+          <Tooltip
+            title={chatOpen ? "Collapse chat" : "Open chat"}
+            placement="left"
+            arrow
+          >
+            <Box
+              onClick={() => setChatOpen((p) => !p)}
+              sx={{
+                display: { xs: "none", xl: "flex" },
+                position: "absolute",
+                top: "50%",
+                right: 0,
+                transform: "translateY(-50%)",
+                zIndex: 30,
+                width: 28,
+                height: 72,
+                borderRadius: "8px 0 0 8px",
+                background: chatOpen
+                  ? alpha(COLORS.accent.pink, 0.15)
+                  : alpha(COLORS.bg.elevated, 0.9),
+                border: `1px solid ${chatOpen ? alpha(COLORS.accent.pink, 0.3) : COLORS.border}`,
+                borderRight: "none",
+                backdropFilter: "blur(8px)",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+                "&:hover": {
+                  background: alpha(COLORS.accent.pink, 0.2),
+                  borderColor: alpha(COLORS.accent.pink, 0.4),
+                  width: 32,
+                },
+              }}
+            >
+              {chatOpen
+                ? <PanelRightClose size={15} color={COLORS.accent.pink} />
+                : <PanelRightOpen size={15} color={COLORS.text.muted} />
+              }
+            </Box>
+          </Tooltip>
+        </Box>
+
+        {/* ── Chat Panel (Desktop — collapses/expands) ── */}
+        <AnimatePresence initial={false}>
+          {chatOpen && (
+            <MotionBox
+              key="chat-panel"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 360, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              sx={{
+                display: { xs: "none", xl: "flex" },
+                flexDirection: "column",
+                flexShrink: 0,
+                overflow: "hidden",
+                borderLeft: `1px solid ${COLORS.border}`,
+              }}
+            >
+              <Box sx={{ width: 360, height: "100%", flexShrink: 0 }}>
+                <ChatPanel socket={socket} roomId={roomId} user={user} />
+              </Box>
+            </MotionBox>
+          )}
+        </AnimatePresence>
+      </Box>
+
+      {/* ── Mobile Chat FAB ── */}
+      <Box
+        onClick={() => setMobileChatOpen(true)}
+        sx={{
+          display: { xs: "flex", xl: "none" },
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          width: 52,
+          height: 52,
+          borderRadius: "16px",
+          background: "linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          zIndex: 40,
+          boxShadow: `0 8px 28px ${alpha(COLORS.accent.pink, 0.45)}`,
+          transition: "all 0.2s ease",
+          "&:hover": { transform: "scale(1.06)" },
+          "&:active": { transform: "scale(0.95)" },
+        }}
+      >
+        <MessageSquare size={22} color="#fff" />
+      </Box>
+
+      {/* ── Mobile Bottom Sheet ── */}
+      <AnimatePresence>
+        {mobileChatOpen && (
+          <>
+            <MotionBox
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileChatOpen(false)}
+              sx={{
+                display: { xs: "block", xl: "none" },
+                position: "fixed",
+                inset: 0,
+                bgcolor: "rgba(11,15,26,0.85)",
+                backdropFilter: "blur(8px)",
+                zIndex: 60,
+              }}
+            />
+            <MotionBox
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              sx={{
+                display: { xs: "flex", xl: "none" },
+                position: "fixed",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: "88vh",
+                bgcolor: COLORS.bg.primary,
+                borderTop: `1px solid ${COLORS.border}`,
+                borderRadius: "28px 28px 0 0",
+                zIndex: 70,
+                flexDirection: "column",
+                overflow: "hidden",
+                boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+              }}
+            >
+              {/* Drag handle */}
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 1.5, pb: 0.5, flexShrink: 0 }}>
+                <Box sx={{ width: 40, height: 4, borderRadius: "4px", bgcolor: COLORS.border }} />
+              </Box>
+
+              {/* Close button */}
+              <Box sx={{ position: "absolute", top: 8, right: 12 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => setMobileChatOpen(false)}
+                  sx={{
+                    color: COLORS.text.muted,
+                    background: alpha(COLORS.bg.elevated, 0.7),
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: "8px",
+                    p: 0.5,
+                    "&:hover": { color: COLORS.text.primary },
+                  }}
+                >
+                  <X size={16} />
+                </IconButton>
+              </Box>
+
+              <Box sx={{ flex: 1, overflow: "hidden" }}>
+                <ChatPanel socket={socket} roomId={roomId} user={user} />
+              </Box>
+            </MotionBox>
+          </>
+        )}
+      </AnimatePresence>
+    </MotionBox>
+  );
 };
 
 export default CodeEditor;

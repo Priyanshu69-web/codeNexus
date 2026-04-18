@@ -1,200 +1,417 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, MessageSquareOff, MessageSquare, Lock as LockIcon } from "lucide-react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import InputBase from "@mui/material/InputBase";
+import { alpha } from "@mui/material/styles";
+import { Send, MessageSquareOff, MessageSquare, Lock, Smile } from "lucide-react";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
 import ChatMessage from "./ChatMessage";
 import TypingIndicator from "./TypingIndicator";
 import API from "../utils/api";
+import { COLORS } from "../theme/theme";
 
 const ChatPanel = ({ socket, roomId, user }) => {
-    const [messages, setMessages] = useState([]);
-    const [inputText, setInputText] = useState("");
-    const [typingUser, setTypingUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const messagesEndRef = useRef(null);
-    const typingTimeoutRef = useRef(null);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState("");
+  const [typingUser, setTypingUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const inputRef = useRef(null);
+  const emojiRef = useRef(null);
 
-    // Fetch message history
-    useEffect(() => {
-        const fetchMessages = async () => {
-            try {
-                const { data } = await API.get(`/room/${roomId}/messages`);
-                setMessages(data);
-            } catch (error) {
-                console.error("Failed to fetch messages:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchMessages();
-    }, [roomId]);
-
-    // Socket listeners
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on("receive-message", (message) => {
-            setMessages((prev) => [...prev, message]);
-        });
-
-        socket.on("user-joined", ({ message, username }) => {
-            setMessages((prev) => [...prev, {
-                _id: Date.now(),
-                type: "system",
-                text: message,
-                createdAt: new Date().toISOString()
-            }]);
-        });
-
-        socket.on("user-left", ({ message, username }) => {
-            if (message) {
-                setMessages((prev) => [...prev, {
-                    _id: Date.now(),
-                    type: "system",
-                    text: message,
-                    createdAt: new Date().toISOString()
-                }]);
-            }
-        });
-
-        socket.on("user-typing", ({ username }) => {
-            setTypingUser(username);
-        });
-
-        socket.on("user-stop-typing", () => {
-            setTypingUser(null);
-        });
-
-        return () => {
-            socket.off("receive-message");
-            socket.off("user-joined");
-            socket.off("user-left");
-            socket.off("user-typing");
-            socket.off("user-stop-typing");
-        };
-    }, [socket]);
-
-    // Auto-scroll to bottom
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages, typingUser]);
-
-    const handleSendMessage = (e) => {
-        e.preventDefault();
-        if (!inputText.trim()) return;
-
-        socket.emit("send-message", {
-            roomId,
-            userId: user._id,
-            username: user.username,
-            text: inputText
-        });
-
-        setInputText("");
-        socket.emit("stop-typing", { roomId });
+  // Fetch history
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const { data: msgs } = await API.get(`/room/${roomId}/messages`);
+        setMessages(msgs);
+      } catch { /* silent */ }
+      finally { setLoading(false); }
     };
+    fetch();
+  }, [roomId]);
 
-    const handleKeyDown = (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            handleSendMessage(e);
-        }
+  // Socket events
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("receive-message",  (msg) => setMessages((p) => [...p, msg]));
+    socket.on("user-joined", ({ message }) => {
+      if (message) setMessages((p) => [...p, { _id: Date.now(), type: "system", text: message, createdAt: new Date().toISOString() }]);
+    });
+    socket.on("user-left", ({ message }) => {
+      if (message) setMessages((p) => [...p, { _id: Date.now(), type: "system", text: message, createdAt: new Date().toISOString() }]);
+    });
+    socket.on("user-typing",      ({ username }) => setTypingUser(username));
+    socket.on("user-stop-typing", () => setTypingUser(null));
+    return () => {
+      socket.off("receive-message");
+      socket.off("user-joined");
+      socket.off("user-left");
+      socket.off("user-typing");
+      socket.off("user-stop-typing");
     };
+  }, [socket]);
 
-    const handleInputChange = (e) => {
-        setInputText(e.target.value);
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, typingUser]);
 
-        socket.emit("typing", { roomId, username: user.username });
-
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => {
-            socket.emit("stop-typing", { roomId });
-        }, 3000);
+  // Close emoji on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target)) setShowEmoji(false);
     };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
-    return (
-        <div className="flex flex-col h-full bg-[#0d1117] border-l border-[#30363d] overflow-hidden">
-            {/* Header */}
-            <div className="h-14 px-4 border-b border-[#30363d] flex items-center justify-between bg-[#0d1117] flex-shrink-0">
-                <div className="flex items-center gap-2">
-                    <MessageSquare size={16} className="text-pink-500" />
-                    <span className="font-bold text-[10px] uppercase tracking-widest text-gray-400">Live Chat</span>
-                </div>
-                <div className="flex items-center gap-2 px-2 py-0.5 bg-green-500/10 rounded border border-green-500/20">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-[10px] font-bold text-green-500 uppercase tracking-tighter">Live</span>
-                </div>
-            </div>
+  const sendMessage = (e) => {
+    e?.preventDefault();
+    if (!inputText.trim() || !socket) return;
+    socket.emit("send-message", { roomId, userId: user._id, username: user.username, text: inputText.trim() });
+    setInputText("");
+    socket.emit("stop-typing", { roomId });
+    inputRef.current?.focus();
+  };
 
-            {/* Messages Area */}
-            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar relative">
-                {!user ? (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 bg-[#0d1117]/80 backdrop-blur-md text-center">
-                        <div className="w-16 h-16 bg-[#161b22] rounded-2xl flex items-center justify-center mb-6 border border-[#30363d]">
-                            <LockIcon className="w-8 h-8 text-pink-500" />
-                        </div>
-                        <h4 className="text-lg font-bold text-white mb-2 tracking-tight">Members Only Chat</h4>
-                        <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-                            Sign in to join the conversation and see what others are saying.
-                        </p>
-                        <div className="flex flex-col w-full gap-3">
-                            <button
-                                onClick={() => window.location.href = "/login"}
-                                className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95 shadow-lg shadow-pink-500/20"
-                            >
-                                Log in
-                            </button>
-                            <button
-                                onClick={() => window.location.href = "/register"}
-                                className="w-full bg-[#21262d] hover:bg-[#30363d] text-white font-bold py-3 rounded-xl transition-all border border-[#30363d] active:scale-95"
-                            >
-                                Create Account
-                            </button>
-                        </div>
-                    </div>
-                ) : loading ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4">
-                        <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hydrating...</span>
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-6 opacity-30">
-                        <MessageSquareOff className="w-12 h-12 mb-4 text-gray-600" />
-                        <h4 className="font-bold text-gray-400 mb-1">Quiet room</h4>
-                        <p className="text-xs text-gray-500">Break the ice and start talking!</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {messages.map((msg) => (
-                            <ChatMessage key={msg._id} message={msg} isOwn={msg.user === user?._id} />
-                        ))}
-                        <TypingIndicator username={typingUser} />
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
 
-            {/* Input - Only for Authenticated Users */}
-            {user && (
-                <div className="p-4 bg-[#0d1117] border-t border-[#30363d] flex-shrink-0">
-                    <form onSubmit={handleSendMessage} className="relative">
-                        <textarea
-                            value={inputText}
-                            onChange={handleInputChange}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Message..."
-                            className="w-full bg-[#161b22] border border-[#30363d] rounded-xl py-3 pl-4 pr-12 text-sm text-[#e6edf3] placeholder:text-gray-600 outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/20 transition-all resize-none min-h-[44px] max-h-32"
-                            rows="1"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputText.trim()}
-                            className="absolute right-2 top-1.5 p-2 bg-pink-500 hover:bg-pink-600 disabled:opacity-20 text-white rounded-lg transition-all active:scale-95 shadow-lg shadow-pink-500/20"
-                        >
-                            <Send size={15} />
-                        </button>
-                    </form>
-                </div>
-            )}
-        </div>
-    );
+  const handleInputChange = (e) => {
+    setInputText(e.target.value);
+    if (!socket) return;
+    socket.emit("typing", { roomId, username: user.username });
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => socket.emit("stop-typing", { roomId }), 3000);
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    setInputText((prev) => prev + emoji.native);
+    setShowEmoji(false);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: COLORS.bg.primary, borderLeft: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
+
+      {/* ── Header ── */}
+      <Box
+        sx={{
+          height: 56,
+          px: 2.5,
+          borderBottom: `1px solid ${COLORS.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          background: alpha(COLORS.bg.secondary, 0.8),
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "10px",
+              background: alpha(COLORS.accent.pink, 0.1),
+              border: `1px solid ${alpha(COLORS.accent.pink, 0.2)}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <MessageSquare size={15} color={COLORS.accent.pink} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: COLORS.text.primary, lineHeight: 1.2 }}>
+              Live Chat
+            </Typography>
+            <Typography sx={{ fontSize: "0.62rem", color: COLORS.text.muted, lineHeight: 1 }}>
+              {messages.filter(m => m.type !== "system").length} messages
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.5,
+            borderRadius: "8px",
+            background: alpha(COLORS.success, 0.08),
+            border: `1px solid ${alpha(COLORS.success, 0.2)}`,
+          }}
+        >
+          <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: COLORS.success, animation: "pulse-dot 2s ease infinite" }} />
+          <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, color: COLORS.success, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Live
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* ── Messages ── */}
+      <Box sx={{ flexGrow: 1, overflowY: "auto", p: 2, position: "relative" }}>
+        {!user ? (
+          // Login prompt overlay
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              p: 3,
+              background: alpha(COLORS.bg.primary, 0.9),
+              backdropFilter: "blur(16px)",
+              textAlign: "center",
+              zIndex: 10,
+            }}
+          >
+            <Box
+              sx={{
+                width: 60,
+                height: 60,
+                borderRadius: "18px",
+                background: alpha(COLORS.accent.pink, 0.08),
+                border: `1px solid ${alpha(COLORS.accent.pink, 0.2)}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                mb: 2.5,
+              }}
+            >
+              <Lock size={26} color={COLORS.accent.pink} />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.text.primary, mb: 1, fontSize: "1rem" }}>
+              Members Only Chat
+            </Typography>
+            <Typography variant="body2" sx={{ color: COLORS.text.muted, mb: 3, lineHeight: 1.6, maxWidth: 220 }}>
+              Sign in to join the conversation and collaborate.
+            </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}>
+              <Box
+                onClick={() => window.location.href = "/login"}
+                sx={{
+                  py: 1.25,
+                  borderRadius: "12px",
+                  background: "linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  transition: "filter 0.2s",
+                  "&:hover": { filter: "brightness(1.1)" },
+                }}
+              >
+                Sign In
+              </Box>
+              <Box
+                onClick={() => window.location.href = "/register"}
+                sx={{
+                  py: 1.25,
+                  borderRadius: "12px",
+                  background: alpha(COLORS.bg.elevated, 0.8),
+                  border: `1px solid ${COLORS.border}`,
+                  color: COLORS.text.secondary,
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": { borderColor: alpha(COLORS.accent.pink, 0.3), color: COLORS.text.primary },
+                }}
+              >
+                Create Account
+              </Box>
+            </Box>
+          </Box>
+        ) : loading ? (
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 2 }}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                border: `2.5px solid ${alpha(COLORS.accent.pink, 0.2)}`,
+                borderTopColor: COLORS.accent.pink,
+                animation: "spin 0.8s linear infinite",
+                "@keyframes spin": { to: { transform: "rotate(360deg)" } },
+              }}
+            />
+            <Typography sx={{ fontSize: "0.72rem", color: COLORS.text.muted, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Loading messages…
+            </Typography>
+          </Box>
+        ) : messages.length === 0 ? (
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.4, gap: 1.5, textAlign: "center" }}>
+            <MessageSquareOff size={40} color={COLORS.text.muted} />
+            <Typography sx={{ fontWeight: 700, color: COLORS.text.secondary }}>Quiet room</Typography>
+            <Typography sx={{ fontSize: "0.78rem", color: COLORS.text.muted }}>Break the ice and start talking!</Typography>
+          </Box>
+        ) : (
+          <Box>
+            {messages.map((msg) => (
+              <ChatMessage key={msg._id} message={msg} />
+            ))}
+            <TypingIndicator username={typingUser} />
+          </Box>
+        )}
+        <div ref={messagesEndRef} />
+      </Box>
+
+      {/* ── Input Bar (authenticated only) ── */}
+      {user && (
+        <Box
+          sx={{
+            p: 2,
+            borderTop: `1px solid ${COLORS.border}`,
+            background: alpha(COLORS.bg.secondary, 0.9),
+            flexShrink: 0,
+            position: "relative",
+          }}
+        >
+          {/* Emoji Picker */}
+          {showEmoji && (
+            <Box
+              ref={emojiRef}
+              sx={{
+                position: "absolute",
+                bottom: "100%",
+                right: 16,
+                mb: 1,
+                zIndex: 200,
+                "& em-emoji-picker": { colorScheme: "dark" },
+              }}
+            >
+              <Picker
+                data={data}
+                onEmojiSelect={handleEmojiSelect}
+                theme="dark"
+                previewPosition="none"
+                skinTonePosition="none"
+                searchPosition="top"
+              />
+            </Box>
+          )}
+
+          {/* Input row */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 1,
+            }}
+          >
+            {/* Emoji button */}
+            <Tooltip title="Emoji" arrow>
+              <IconButton
+                onClick={() => setShowEmoji((p) => !p)}
+                size="small"
+                sx={{
+                  color: showEmoji ? COLORS.accent.pink : COLORS.text.muted,
+                  background: showEmoji ? alpha(COLORS.accent.pink, 0.1) : "transparent",
+                  border: `1px solid ${showEmoji ? alpha(COLORS.accent.pink, 0.3) : "transparent"}`,
+                  borderRadius: "10px",
+                  p: 0.75,
+                  flexShrink: 0,
+                  alignSelf: "center",
+                  "&:hover": { color: COLORS.accent.pink, background: alpha(COLORS.accent.pink, 0.08) },
+                }}
+              >
+                <Smile size={18} />
+              </IconButton>
+            </Tooltip>
+
+            {/* Text area */}
+            <Box
+              sx={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                borderRadius: "14px",
+                background: COLORS.bg.primary,
+                border: `1.5px solid ${COLORS.border}`,
+                px: 2,
+                py: 1,
+                transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                "&:focus-within": {
+                  borderColor: alpha(COLORS.accent.pink, 0.5),
+                  boxShadow: `0 0 0 3px ${alpha(COLORS.accent.pink, 0.06)}`,
+                },
+              }}
+            >
+              <InputBase
+                inputRef={inputRef}
+                value={inputText}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Message…"
+                multiline
+                maxRows={4}
+                fullWidth
+                sx={{
+                  color: COLORS.text.primary,
+                  fontSize: "0.88rem",
+                  lineHeight: 1.6,
+                  "& textarea::placeholder": { color: COLORS.text.muted },
+                  "& .MuiInputBase-inputMultiline": {
+                    resize: "none",
+                  },
+                }}
+              />
+            </Box>
+
+            {/* Send button */}
+            <Tooltip title="Send (Enter)" arrow>
+              <Box
+                onClick={sendMessage}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "12px",
+                  background: inputText.trim()
+                    ? "linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)"
+                    : alpha(COLORS.bg.elevated, 0.7),
+                  border: `1px solid ${inputText.trim() ? "transparent" : COLORS.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: inputText.trim() ? "pointer" : "default",
+                  flexShrink: 0,
+                  transition: "all 0.2s ease",
+                  boxShadow: inputText.trim() ? `0 4px 16px ${alpha(COLORS.accent.pink, 0.3)}` : "none",
+                  "&:hover": inputText.trim()
+                    ? { filter: "brightness(1.1)", transform: "scale(1.05)" }
+                    : {},
+                  "&:active": inputText.trim()
+                    ? { transform: "scale(0.95)" }
+                    : {},
+                }}
+              >
+                <Send size={16} color={inputText.trim() ? "#fff" : COLORS.text.muted} />
+              </Box>
+            </Tooltip>
+          </Box>
+
+          <Typography sx={{ fontSize: "0.62rem", color: COLORS.text.disabled, mt: 0.75, textAlign: "center" }}>
+            Enter to send · Shift+Enter for new line
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
 };
 
 export default ChatPanel;

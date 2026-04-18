@@ -1,126 +1,225 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { 
-    Code2, 
-    Copy, 
-    Check, 
-    Link as LinkIcon, 
-    Download as DownloadIcon, 
-    LogOut, 
-    ChevronLeft 
-} from "lucide-react";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Box from "@mui/material/Box";
+import Tooltip from "@mui/material/Tooltip";
+import Snackbar from "@mui/material/Snackbar";
+import { alpha } from "@mui/material/styles";
+import { Copy, Check, Download, LogOut } from "lucide-react";
+import Logo from "./Logo";
+import GradientButton from "./GradientButton";
 import LanguageSelector from "./LanguageSelector";
 import ActiveUsers from "./ActiveUsers";
+import { COLORS } from "../theme/theme";
 
-const Navbar = ({ 
-    roomId = "CodeNexus", 
-    language = "javascript", 
-    onLanguageChange = () => {}, 
-    onDownload = () => {}, 
-    activeUsers = [] 
+const Navbar = ({
+  roomId = "CodeNexus",
+  language = "javascript",
+  onLanguageChange = () => {},
+  onDownload = () => {},
+  activeUsers = [],
 }) => {
-    const [copiedId, setCopiedId] = useState(false);
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+  const [snackOpen, setSnackOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-    const copyRoomId = () => {
-        if (roomId === "CodeNexus") return;
-        navigator.clipboard.writeText(roomId);
-        setCopiedId(true);
-        setTimeout(() => setCopiedId(false), 2000);
-    };
+  const copyRoomId = () => {
+    if (!roomId || roomId === "CodeNexus") return;
+    navigator.clipboard.writeText(roomId);
+    setCopied(true);
+    setSnackOpen(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
-    const handleLanguageChange = (newLang) => {
-        if (typeof onLanguageChange === "function") {
-            onLanguageChange(newLang);
-        }
-    };
+  return (
+    <>
+      <AppBar position="static" sx={{ zIndex: 50, flexShrink: 0 }}>
+        <Toolbar
+          sx={{
+            minHeight: "56px !important",
+            height: 56,
+            px: { xs: 2, sm: 3 },
+            gap: 2,
+          }}
+        >
+          {/* ── Left: Logo + Workspace + Room ID ── */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+            <Logo size="sm" />
 
-    return (
-        <nav className="h-14 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between px-6 z-50 shadow-sm flex-shrink-0">
-            {/* Left: Logo & Room Info */}
-            <div className="flex items-center gap-6">
-                <div 
-                    onClick={() => navigate("/")}
-                    className="flex items-center gap-2 cursor-pointer group"
+            <Box sx={{ width: 1, height: 24, bgcolor: COLORS.border, display: { xs: "none", sm: "block" } }} />
+
+            {/* Room ID chip */}
+            <Tooltip title={copied ? "Copied!" : "Copy Room ID"} arrow>
+              <Box
+                onClick={copyRoomId}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  px: 2,
+                  py: 0.75,
+                  borderRadius: "10px",
+                  background: alpha(COLORS.bg.surface, 0.8),
+                  border: `1px solid ${copied ? alpha(COLORS.success, 0.4) : COLORS.border}`,
+                  cursor: roomId !== "CodeNexus" ? "pointer" : "default",
+                  transition: "all 0.2s ease",
+                  "&:hover": roomId !== "CodeNexus" ? {
+                    borderColor: alpha(COLORS.accent.pink, 0.4),
+                    background: COLORS.bg.surface,
+                  } : {},
+                  "&:active": { transform: "scale(0.97)" },
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    display: { xs: "none", lg: "inline" },
+                    fontSize: "0.62rem",
+                    fontWeight: 800,
+                    color: COLORS.text.muted,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                  }}
                 >
-                    <div className="w-8 h-8 bg-pink-500 rounded-xl flex items-center justify-center group-hover:bg-pink-600 transition-all shadow-lg shadow-pink-500/10 group-hover:scale-105">
-                        <Code2 className="w-5 h-5 text-white" />
-                    </div>
-                </div>
-                
-                <div className="h-6 w-px bg-[#30363d] hidden sm:block"></div>
+                  Workspace
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    color: COLORS.text.primary,
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {roomId}
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", width: 14, flexShrink: 0 }}>
+                  {copied
+                    ? <Check size={13} color={COLORS.success} />
+                    : <Copy size={13} color={COLORS.text.muted} />
+                  }
+                </Box>
+              </Box>
+            </Tooltip>
+          </Box>
 
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] hidden lg:inline">Workspace</span>
-                    <button 
-                        onClick={copyRoomId}
-                        disabled={roomId === "CodeNexus"}
-                        className="flex items-center gap-3 bg-[#161b22]/50 hover:bg-[#161b22] px-3 py-1.5 rounded-xl border border-[#30363d] transition-all group active:scale-95 disabled:opacity-50 disabled:cursor-default"
-                    >
-                        <span className="font-mono text-xs font-bold text-gray-300 tracking-tight">{roomId}</span>
-                        <div className="w-4 h-4 flex items-center justify-center">
-                            {copiedId ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300" />}
-                        </div>
-                    </button>
-                </div>
-            </div>
+          <Box sx={{ flexGrow: 1 }} />
 
-            {/* Right: Actions & Auth */}
-            <div className="flex items-center gap-3 md:gap-6">
-                {activeUsers.length > 0 && (
-                    <div className="hidden md:flex items-center pr-2">
-                        <ActiveUsers users={activeUsers} />
-                    </div>
-                )}
-                
-                {activeUsers.length > 0 && <div className="h-6 w-px bg-[#30363d] hidden md:block"></div>}
+          {/* ── Center/Right: Active Users + Controls ── */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            {/* Active Users */}
+            {activeUsers.length > 0 && (
+              <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", pr: 1 }}>
+                <ActiveUsers users={activeUsers} />
+              </Box>
+            )}
 
-                <div className="flex items-center gap-2">
-                    <LanguageSelector 
-                        selected={language} 
-                        onChange={handleLanguageChange} 
-                    />
+            {activeUsers.length > 0 && (
+              <Box sx={{ width: 1, height: 24, bgcolor: COLORS.border, display: { xs: "none", md: "block" } }} />
+            )}
 
-                    <button 
-                        onClick={onDownload}
-                        className="p-2 hover:bg-[#161b22] text-gray-400 hover:text-white rounded-xl transition-all active:scale-90 border border-transparent hover:border-[#30363d]"
-                        title="Download Code"
-                    >
-                        <DownloadIcon className="w-4.5 h-4.5" />
-                    </button>
-                </div>
+            {/* Language Selector */}
+            <LanguageSelector selected={language} onChange={onLanguageChange} />
 
-                <div className="h-6 w-px bg-[#30363d]"></div>
+            {/* Download */}
+            <Tooltip title="Download Code" arrow>
+              <Box
+                onClick={onDownload}
+                sx={{
+                  p: 1,
+                  borderRadius: "10px",
+                  border: `1px solid transparent`,
+                  cursor: "pointer",
+                  color: COLORS.text.muted,
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    color: COLORS.text.primary,
+                    background: alpha(COLORS.bg.surface, 0.8),
+                    borderColor: COLORS.border,
+                  },
+                  "&:active": { transform: "scale(0.92)" },
+                }}
+              >
+                <Download size={17} />
+              </Box>
+            </Tooltip>
 
-                {user ? (
-                    <button 
-                        onClick={() => { logout(); navigate("/login"); }}
-                        className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-xl transition-all group"
-                        title="Logout"
-                    >
-                        <LogOut className="w-4.5 h-4.5 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                ) : (
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={() => navigate("/login")}
-                            className="text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all"
-                        >
-                            Login
-                        </button>
-                        <button 
-                            onClick={() => navigate("/register")}
-                            className="hidden sm:block text-[11px] font-black uppercase tracking-widest bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-pink-500/20 active:scale-95"
-                        >
-                            Join
-                        </button>
-                    </div>
-                )}
-            </div>
-        </nav>
-    );
+            <Box sx={{ width: 1, height: 24, bgcolor: COLORS.border }} />
+
+            {/* Auth Controls */}
+            {user ? (
+              <Tooltip title="Logout" arrow>
+                <Box
+                  onClick={() => { logout(); navigate("/"); }}
+                  sx={{
+                    p: 1,
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    color: COLORS.text.muted,
+                    transition: "all 0.2s ease",
+                    "&:hover": { color: COLORS.error, background: alpha(COLORS.error, 0.07) },
+                    "&:active": { transform: "scale(0.92)" },
+                  }}
+                >
+                  <LogOut size={17} />
+                </Box>
+              </Tooltip>
+            ) : (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box
+                  onClick={() => navigate("/login")}
+                  sx={{
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    color: COLORS.text.muted,
+                    cursor: "pointer",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    transition: "color 0.2s",
+                    "&:hover": { color: COLORS.text.primary },
+                    display: { xs: "none", sm: "block" },
+                  }}
+                >
+                  Login
+                </Box>
+                <GradientButton
+                  variant="gradient"
+                  size="small"
+                  onClick={() => navigate("/register")}
+                  sx={{ borderRadius: "8px", px: 2, py: 0.75, fontSize: "0.78rem" }}
+                >
+                  Join
+                </GradientButton>
+              </Box>
+            )}
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* Copy feedback */}
+      <Snackbar
+        open={snackOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackOpen(false)}
+        message="Room ID copied to clipboard"
+        sx={{
+          "& .MuiSnackbarContent-root": {
+            background: COLORS.bg.elevated,
+            border: `1px solid ${COLORS.border}`,
+            color: COLORS.text.primary,
+            fontWeight: 600,
+            borderRadius: "12px",
+            fontSize: "0.85rem",
+          },
+        }}
+      />
+    </>
+  );
 };
 
 export default Navbar;

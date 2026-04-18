@@ -1,185 +1,474 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Code2, Users, Zap, GitBranch, ArrowRight, Plus, LogOut } from "lucide-react";
+import Box from "@mui/material/Box";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+import InputBase from "@mui/material/InputBase";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
+import { alpha } from "@mui/material/styles";
+import { motion } from "framer-motion";
+import { Zap, Users, Code2, ArrowRight, Plus, LogOut, GitBranch, Terminal, Globe } from "lucide-react";
+import Logo from "../components/Logo";
+import GradientButton from "../components/GradientButton";
+import { COLORS, GRADIENT } from "../theme/theme";
 
 const generateId = (length = 6) => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let id = "";
-    for (let i = 0; i < length; i++) {
-        id += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return id;
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let id = "";
+  for (let i = 0; i < length; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+  return id;
 };
 
+const MotionBox = motion(Box);
+
+// ─── Feature Cards Data ───────────────────────────────────────────────────────
+const features = [
+  {
+    icon: Zap,
+    iconColor: "#F59E0B",
+    iconBg: "rgba(245,158,11,0.08)",
+    title: "Instant Sync",
+    desc: "Peer-to-peer code updates with sub-millisecond latency. Every keystroke reflected in real-time.",
+    badge: "< 10ms",
+  },
+  {
+    icon: Users,
+    iconColor: "#38BDF8",
+    iconBg: "rgba(56,189,248,0.08)",
+    title: "Live Presence",
+    desc: "See who's in the room, their cursor positions, and what they're working on.",
+    badge: "Multi-user",
+  },
+  {
+    icon: Code2,
+    iconColor: "#34D399",
+    iconBg: "rgba(52,211,153,0.08)",
+    title: "Smart Highlighting",
+    desc: "Full Monaco Editor with syntax highlighting for 15+ languages including JS, Python, Go.",
+    badge: "15+ langs",
+  },
+  {
+    icon: Terminal,
+    iconColor: "#A78BFA",
+    iconBg: "rgba(167,139,250,0.08)",
+    title: "Zero Setup",
+    desc: "No install, no configuration. Just share a link and start coding together instantly.",
+    badge: "Instant",
+  },
+  {
+    icon: Globe,
+    iconColor: "#EC4899",
+    iconBg: "rgba(236,72,153,0.08)",
+    title: "Live Chat",
+    desc: "Built-in real-time chat with message history, emoji support, and typing indicators.",
+    badge: "Real-time",
+  },
+  {
+    icon: GitBranch,
+    iconColor: "#FB923C",
+    iconBg: "rgba(251,146,60,0.08)",
+    title: "Code Export",
+    desc: "Download your session code instantly with the correct file extension for your language.",
+    badge: "One-click",
+  },
+];
+
+// ─── Feature Card ─────────────────────────────────────────────────────────────
+const FeatureCard = ({ feature, index }) => {
+  const Icon = feature.icon;
+  return (
+    <MotionBox
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 * index + 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      sx={{
+        p: 3.5,
+        borderRadius: "20px",
+        border: `1px solid ${COLORS.border}`,
+        background: `linear-gradient(140deg, ${alpha(COLORS.bg.surface, 0.6)} 0%, ${alpha(COLORS.bg.secondary, 0.4)} 100%)`,
+        backdropFilter: "blur(12px)",
+        transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        cursor: "default",
+        height: "100%",
+        "&:hover": {
+          borderColor: alpha(COLORS.accent.pink, 0.3),
+          transform: "translateY(-6px)",
+          boxShadow: `0 20px 40px ${alpha(COLORS.accent.pink, 0.08)}`,
+          "& .feature-icon-box": {
+            background: feature.iconBg.replace("0.08", "0.14"),
+            transform: "scale(1.08)",
+          },
+        },
+      }}
+    >
+      <Box
+        className="feature-icon-box"
+        sx={{
+          width: 52,
+          height: 52,
+          borderRadius: "14px",
+          background: feature.iconBg,
+          border: `1px solid ${alpha(feature.iconColor, 0.2)}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          mb: 2.5,
+          transition: "all 0.25s ease",
+        }}
+      >
+        <Icon size={22} color={feature.iconColor} strokeWidth={1.8} />
+      </Box>
+
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.text.primary, fontSize: "1rem" }}>
+          {feature.title}
+        </Typography>
+        <Chip
+          label={feature.badge}
+          size="small"
+          sx={{
+            height: 20,
+            fontSize: "0.62rem",
+            fontWeight: 700,
+            letterSpacing: "0.05em",
+            background: alpha(feature.iconColor, 0.1),
+            border: `1px solid ${alpha(feature.iconColor, 0.2)}`,
+            color: feature.iconColor,
+            "& .MuiChip-label": { px: 1 },
+          }}
+        />
+      </Box>
+
+      <Typography variant="body2" sx={{ color: COLORS.text.secondary, lineHeight: 1.7, fontSize: "0.85rem" }}>
+        {feature.desc}
+      </Typography>
+    </MotionBox>
+  );
+};
+
+// ─── Home Page ────────────────────────────────────────────────────────────────
 export default function HomePage() {
-    const [joinId, setJoinId] = useState("");
-    const navigate = useNavigate();
-    const { user, logout } = useAuth();
+  const [joinId, setJoinId] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-    const createSession = () => {
-        const roomId = generateId(6);
-        navigate(`/${roomId}`);
-    };
+  const createSession = () => navigate(`/${generateId(6)}`);
+  const joinSession = (e) => { e.preventDefault(); if (joinId.trim()) navigate(`/${joinId.trim()}`); };
 
-    const joinSession = (e) => {
-        e.preventDefault();
-        if (joinId.trim()) {
-            navigate(`/${joinId.trim()}`);
-        }
-    };
+  return (
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: COLORS.bg.primary, overflow: "hidden" }}>
 
-    return (
-        <div className="min-h-screen flex flex-col bg-[#0d1117] text-white overflow-hidden selection:bg-pink-500/30">
-            {/* Background elements */}
-            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-pink-500/5 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 rounded-full blur-[120px]"></div>
-            </div>
+      {/* ── Ambient Background ── */}
+      <Box sx={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+        <Box sx={{
+          position: "absolute", top: "-20%", left: "-15%",
+          width: "55%", height: "55%",
+          background: "radial-gradient(ellipse, rgba(236,72,153,0.06) 0%, transparent 70%)",
+          borderRadius: "50%",
+        }} />
+        <Box sx={{
+          position: "absolute", bottom: "-20%", right: "-15%",
+          width: "55%", height: "55%",
+          background: "radial-gradient(ellipse, rgba(139,92,246,0.06) 0%, transparent 70%)",
+          borderRadius: "50%",
+        }} />
+        <Box sx={{
+          position: "absolute", top: "40%", left: "40%",
+          width: "30%", height: "30%",
+          background: "radial-gradient(ellipse, rgba(99,102,241,0.03) 0%, transparent 70%)",
+          borderRadius: "50%",
+        }} />
+      </Box>
 
-            {/* Top Navigation */}
-            <nav className="w-full h-20 border-b border-[#30363d] bg-[#0d1117]/80 backdrop-blur-md sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-gradient-to-br from-pink-500 to-purple-600 p-2 rounded-lg shadow-lg shadow-pink-500/20">
-                            <Code2 className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">CodeNexus</span>
-                    </div>
+      {/* ── Sticky Navbar ── */}
+      <AppBar position="sticky" sx={{ zIndex: 50 }}>
+        <Toolbar sx={{ maxWidth: "1200px", width: "100%", mx: "auto", px: { xs: 2, sm: 4 }, height: 68, minHeight: "68px !important" }}>
+          <Logo size="md" />
 
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        {user ? (
-                            <div className="flex items-center gap-4">
-                                <span className="text-gray-400 text-sm hidden sm:inline">
-                                    <span className="opacity-60">Hi,</span> <span className="text-white font-medium">{user.username}</span>
-                                </span>
-                                <button
-                                    onClick={logout}
-                                    className="p-2.5 hover:bg-red-500/10 text-gray-400 hover:text-red-500 rounded-xl transition-all active:scale-95"
-                                    title="Logout"
-                                >
-                                    <LogOut className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => navigate("/login")}
-                                    className="text-sm font-semibold text-gray-400 hover:text-white transition-colors"
-                                >
-                                    Log in
-                                </button>
-                                <button
-                                    onClick={() => navigate("/register")}
-                                    className="text-sm font-semibold bg-[#21262d] py-2 px-5 rounded-lg border border-[#30363d] hover:bg-[#30363d] transition-all active:scale-95"
-                                >
-                                    Sign up
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </nav>
+          <Box sx={{ flexGrow: 1 }} />
 
-            <main className="relative z-10 flex-grow flex flex-col items-center justify-center px-6 py-12">
-                <div className="max-w-4xl w-full text-center space-y-12">
-                    {/* Badge */}
-                    <div className="animate-fadeIn opacity-0 [animation-fill-mode:forwards]">
-                        <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#161b22] border border-[#30363d] text-xs font-medium text-gray-300">
-                            <Zap className="w-3.5 h-3.5 text-pink-500 fill-pink-500/20" />
-                            <span>v2.0 • Peer-to-peer code collaboration</span>
-                        </div>
-                    </div>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            {user ? (
+              <>
+                <Typography sx={{ color: COLORS.text.secondary, fontSize: "0.85rem", display: { xs: "none", sm: "block" } }}>
+                  Hi, <Box component="span" sx={{ color: COLORS.text.primary, fontWeight: 600 }}>{user.username}</Box>
+                </Typography>
+                <Tooltip title="Logout" arrow>
+                  <Box
+                    onClick={() => { logout(); }}
+                    sx={{
+                      p: 1,
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      color: COLORS.text.muted,
+                      transition: "all 0.2s ease",
+                      "&:hover": { color: COLORS.error, background: alpha(COLORS.error, 0.08) },
+                    }}
+                  >
+                    <LogOut size={18} />
+                  </Box>
+                </Tooltip>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => navigate("/login")}
+                  sx={{ color: COLORS.text.secondary, fontSize: "0.87rem", fontWeight: 600, "&:hover": { color: COLORS.text.primary } }}
+                >
+                  Log in
+                </Button>
+                <GradientButton
+                  variant="gradient"
+                  size="small"
+                  onClick={() => navigate("/register")}
+                  sx={{ borderRadius: "10px", px: 2.5, py: 1 }}
+                >
+                  Sign up
+                </GradientButton>
+              </>
+            )}
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-                    {/* Headline */}
-                    <div className="space-y-6 animate-slideUp">
-                        <h2 className="text-5xl sm:text-8xl font-black tracking-tight leading-[1.1]">
-                            Better code, <br />
-                            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
-                                built together.
-                            </span>
-                        </h2>
-                        <p className="text-gray-400 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
-                            A minimalist, real-time code editor built for pairing and interviews. No setup required, just share a link and start coding instantly.
-                        </p>
-                    </div>
+      {/* ── Main Content ── */}
+      <Box component="main" sx={{ position: "relative", zIndex: 1, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 4 } }}>
 
-                    {/* CTA Section */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 animate-fadeIn opacity-0 [animation-delay:300ms] [animation-fill-mode:forwards]">
-                        <button
-                            onClick={createSession}
-                            className="w-full sm:w-auto px-10 py-5 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl text-lg font-bold transition-all shadow-2xl shadow-pink-500/20 flex items-center justify-center gap-3 relative group overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                            <Plus className="w-6 h-6" />
-                            Start Coding
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
-                        </button>
+          {/* ── Hero ── */}
+          <Box sx={{ textAlign: "center", pt: { xs: 8, md: 12 }, pb: { xs: 6, md: 10 } }}>
 
-                        <div className="w-full sm:w-[1px] h-[1px] sm:h-12 bg-[#30363d]"></div>
+            {/* Badge */}
+            <MotionBox
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              sx={{ display: "inline-flex", mb: 4 }}
+            >
+              <Box sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 1,
+                px: 2,
+                py: 0.75,
+                borderRadius: "100px",
+                background: alpha(COLORS.bg.surface, 0.8),
+                border: `1px solid ${COLORS.border}`,
+                backdropFilter: "blur(12px)",
+              }}>
+                <Zap size={13} color={COLORS.accent.pink} fill={alpha(COLORS.accent.pink, 0.2)} />
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: COLORS.text.secondary, letterSpacing: "0.03em" }}>
+                  v2.0 · Peer-to-peer real-time collaboration
+                </Typography>
+              </Box>
+            </MotionBox>
 
-                        <form onSubmit={joinSession} className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={joinId}
-                                    onChange={(e) => setJoinId(e.target.value)}
-                                    placeholder="Room ID"
-                                    className="w-full sm:w-56 bg-[#161b22] border border-[#30363d] rounded-2xl px-6 py-5 text-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-pink-500/50 focus:ring-4 focus:ring-pink-500/5 transition-all"
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                className="px-10 py-5 bg-[#21262d] hover:bg-[#30363d] text-white rounded-2xl text-lg font-bold transition-all border border-[#30363d] active:scale-95 shadow-xl"
-                            >
-                                Join Room
-                            </button>
-                        </form>
-                    </div>
+            {/* Headline */}
+            <MotionBox
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <Typography
+                variant="h1"
+                sx={{
+                  fontSize: { xs: "2.8rem", sm: "4.5rem", md: "6rem", lg: "7rem" },
+                  fontWeight: 900,
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.05,
+                  mb: 3,
+                  color: COLORS.text.primary,
+                }}
+              >
+                Better code,{" "}
+                <Box component="br" sx={{ display: { xs: "none", sm: "block" } }} />
+                <Box
+                  component="span"
+                  sx={{
+                    background: "linear-gradient(135deg, #EC4899 0%, #8B5CF6 60%, #6366F1 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  built together.
+                </Box>
+              </Typography>
 
-                    {/* Features Section */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pt-12 animate-fadeIn opacity-0 [animation-delay:600ms] [animation-fill-mode:forwards]">
-                        {[
-                            { icon: <Zap className="text-amber-400" />, title: "Instant Sync", desc: "Peer-to-peer code updates with millisecond latency." },
-                            { icon: <Users className="text-sky-400" />, title: "Live Presence", desc: "See who's in the room and what they're up to." },
-                            { icon: <Code2 className="text-emerald-400" />, title: "Smart Highlighting", desc: "Full support for all major programming languages." }
-                        ].map((feature, idx) => (
-                            <div key={idx} className="bg-[#161b22]/30 border border-[#30363d]/50 p-8 rounded-3xl hover:bg-[#161b22]/50 hover:border-pink-500/20 transition-all group backdrop-blur-sm">
-                                <div className="w-14 h-14 bg-[#0d1117] rounded-2xl flex items-center justify-center mb-6 border border-[#30363d] group-hover:border-pink-500/30 group-hover:bg-[#161b22] transition-all shadow-inner">
-                                    {React.cloneElement(feature.icon, { className: `w-6 h-6 ${feature.icon.props.className}` })}
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{feature.title}</h3>
-                                <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </main>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: COLORS.text.secondary,
+                  fontSize: { xs: "1rem", sm: "1.15rem", md: "1.25rem" },
+                  maxWidth: 560,
+                  mx: "auto",
+                  lineHeight: 1.7,
+                  mb: 6,
+                }}
+              >
+                A minimalist, real-time code editor built for pairing and interviews.
+                No setup required — share a link and code together instantly.
+              </Typography>
+            </MotionBox>
 
-            {/* Simple Footer */}
-            <footer className="w-full py-10 px-6 border-t border-[#30363d] bg-[#0d1117]/50 backdrop-blur-sm">
-                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-8">
-                    <div className="flex flex-col items-center sm:items-start gap-2">
-                        <div className="flex items-center gap-2">
-                            <Code2 className="w-4 h-4 text-pink-500" />
-                            <span className="font-bold tracking-tight">CodeNexus</span>
-                        </div>
-                        <p className="text-gray-500 text-xs">
-                            © 2026 CodeNexus • Built for collaborative coding.
-                        </p>
-                    </div>
+            {/* CTA */}
+            <MotionBox
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.5 }}
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 2,
+              }}
+            >
+              <GradientButton
+                variant="gradient"
+                size="large"
+                glow
+                onClick={createSession}
+                startIcon={<Plus size={20} />}
+                endIcon={<ArrowRight size={18} />}
+                sx={{ width: { xs: "100%", sm: "auto" }, borderRadius: "14px", px: 4 }}
+              >
+                Start Coding
+              </GradientButton>
 
-                    <div className="flex items-center gap-8">
-                        <a href="#" className="p-2 bg-[#161b22] border border-[#30363d] rounded-lg text-gray-400 hover:text-white transition-all hover:scale-110">
-                            <GitBranch className="w-5 h-5" />
-                        </a>
-                        <div className="flex items-center gap-4">
-                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                            <span className="text-xs font-semibold text-gray-400 tracking-widest uppercase">Platform Online</span>
-                        </div>
-                    </div>
-                </div>
-            </footer>
-        </div>
-    );
+              {/* Divider */}
+              <Box sx={{
+                display: { xs: "none", sm: "flex" },
+                alignItems: "center",
+                gap: 2,
+              }}>
+                <Box sx={{ width: 1, height: 40, bgcolor: COLORS.border }} />
+              </Box>
+
+              {/* Join form */}
+              <Box
+                component="form"
+                onSubmit={joinSession}
+                sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: 1,
+                  width: { xs: "100%", sm: "auto" },
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2.5,
+                    py: 1.2,
+                    borderRadius: "14px",
+                    background: alpha(COLORS.bg.surface, 0.7),
+                    border: `1.5px solid ${inputFocused ? alpha(COLORS.accent.pink, 0.5) : COLORS.border}`,
+                    backdropFilter: "blur(12px)",
+                    transition: "all 0.2s ease",
+                    boxShadow: inputFocused ? `0 0 0 3px ${alpha(COLORS.accent.pink, 0.06)}` : "none",
+                    width: { xs: "100%", sm: 200 },
+                  }}
+                >
+                  <InputBase
+                    value={joinId}
+                    onChange={(e) => setJoinId(e.target.value)}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
+                    placeholder="Enter Room ID..."
+                    sx={{ color: COLORS.text.primary, fontSize: "0.95rem", fontWeight: 500, flex: 1, "& input::placeholder": { color: COLORS.text.muted } }}
+                  />
+                </Box>
+                <GradientButton
+                  type="submit"
+                  variant="surface"
+                  size="large"
+                  sx={{ width: { xs: "100%", sm: "auto" }, borderRadius: "14px", whiteSpace: "nowrap" }}
+                >
+                  Join Room
+                </GradientButton>
+              </Box>
+            </MotionBox>
+          </Box>
+
+          {/* ── Feature Cards Grid ── */}
+          <Box sx={{ pb: { xs: 8, md: 12 } }}>
+            <MotionBox
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              sx={{ textAlign: "center", mb: 6 }}
+            >
+              <Typography
+                variant="overline"
+                sx={{ color: COLORS.accent.pink, letterSpacing: "0.2em", fontSize: "0.7rem", display: "block", mb: 1 }}
+              >
+                Everything you need
+              </Typography>
+              <Typography variant="h4" sx={{ color: COLORS.text.primary, fontWeight: 800, letterSpacing: "-0.02em" }}>
+                Built for developers
+              </Typography>
+            </MotionBox>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "1fr 1fr",
+                  md: "1fr 1fr 1fr",
+                },
+                gap: 2.5,
+              }}
+            >
+              {features.map((feature, idx) => (
+                <FeatureCard feature={feature} index={idx} key={idx} />
+              ))}
+            </Box>
+          </Box>
+        </Container>
+      </Box>
+
+      {/* ── Footer ── */}
+      <Box
+        component="footer"
+        sx={{
+          borderTop: `1px solid ${COLORS.border}`,
+          background: alpha(COLORS.bg.primary, 0.8),
+          backdropFilter: "blur(12px)",
+          py: 4,
+          px: { xs: 2, sm: 4 },
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <Container maxWidth="lg">
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, alignItems: { xs: "center", sm: "center" }, justifyContent: "space-between", gap: 3 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: { xs: "center", sm: "flex-start" }, gap: 0.5 }}>
+              <Logo size="sm" />
+              <Typography variant="caption" sx={{ color: COLORS.text.muted, mt: 0.5 }}>
+                © 2026 CodeNexus · Built for collaborative coding.
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: COLORS.success, animation: "pulse-dot 2s ease infinite" }} />
+                <Typography variant="caption" sx={{ color: COLORS.text.muted, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  Platform Online
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Container>
+      </Box>
+    </Box>
+  );
 }
